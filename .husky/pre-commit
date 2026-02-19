@@ -1,0 +1,12 @@
+echo "🔨 Building project before commit..."
+
+if ! pnpm run build; then
+  echo ""
+  echo "❌ Build failed! Commit aborted."
+  echo ""
+  echo "   Fix the TypeScript errors above, then try committing again."
+  echo "   You can run 'pnpm run build' to check your fixes."
+  exit 1
+fi
+
+git add dist/

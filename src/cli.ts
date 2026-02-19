@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import chalk from "chalk";
-import { findProjectRoot } from "./lib/config.js";
+import { findProjectRoot, loadConfig } from "./lib/config.js";
 import { CommandError } from "./lib/errors.js";
 import { initCommand } from "./commands/init.js";
 import { startCommand } from "./commands/start.js";
@@ -11,7 +11,66 @@ import { nukeCommand } from "./commands/nuke.js";
 import { instructionsCommand } from "./commands/instructions.js";
 import { usageCommand } from "./commands/usage.js";
 import { configCommand } from "./commands/config.js";
+import { supabaseStop } from "./lib/exec.js";
+import { restoreAllEnvFiles } from "./lib/env.js";
+import { unregisterWorktree } from "./lib/registry.js";
 import type { CommandContext } from "./lib/types.js";
+
+/**
+ * Tracks the project root of an instance started during this interactive
+ * session.  Set after a successful `start`, cleared after `stop` / `nuke`.
+ */
+let activeSessionRoot: string | null = null;
+
+/**
+ * Gracefully stop the Supabase instance that was started during this
+ * interactive session.  Idempotent — safe to call multiple times.
+ */
+async function cleanupActiveSession(): Promise<void> {
+  if (!activeSessionRoot) return;
+
+  const root = activeSessionRoot;
+  activeSessionRoot = null; // prevent re-entry from concurrent signals
+
+  console.log(
+    chalk.yellow("\n⏳ Stopping Supabase instance before exit...\n")
+  );
+
+  try {
+    await supabaseStop(root);
+    console.log(chalk.green("  ✓ Supabase stopped"));
+  } catch {
+    console.log(
+      chalk.yellow("  ⚠ Could not stop Supabase cleanly (may need manual cleanup)")
+    );
+  }
+
+  try {
+    const config = await loadConfig(root);
+    const restored = await restoreAllEnvFiles({
+      patterns: config?.envFiles ?? [],
+      projectRoot: root,
+    });
+    if (restored.length > 0) {
+      console.log(chalk.green(`  ✓ Restored ${restored.length} .env file(s)`));
+    }
+  } catch {
+    // best-effort
+  }
+
+  try {
+    await unregisterWorktree(root);
+    console.log(chalk.green("  ✓ Removed registry entry"));
+  } catch {
+    // best-effort
+  }
+
+  console.log(
+    chalk.dim("\n  Tip: run ") +
+      chalk.cyan("sb-worktree status") +
+      chalk.dim(" to verify everything is cleaned up.\n")
+  );
+}
 
 type MenuChoice = "start" | "stop" | "status" | "cleanup" | "nuke" | "init" | "config" | "instructions" | "usage" | "quit";
 
@@ -54,7 +113,7 @@ const INTERACTIVE_CHOICES: { value: MenuChoice; name: string }[] = [
   },
   {
     value: "quit",
-    name: "quit         — Exit (or press Ctrl+C / Ctrl+D)",
+    name: "quit         — Exit and stop any running instance (or Ctrl+C / Ctrl+D)",
   },
 ];
 
@@ -141,54 +200,94 @@ async function runCommand(
 /**
  * Run the interactive menu loop.
  * Repeats until the user selects "quit" or presses Ctrl+C / Ctrl+D.
+ *
+ * If the user started a Supabase instance during this session, it is
+ * automatically stopped on exit (quit, Ctrl+C, Ctrl+D, or SIGTERM).
  */
 async function interactiveLoop(opts: Record<string, unknown>): Promise<void> {
   const { select } = await import("@inquirer/prompts");
+
+  // --- signal handlers for cleanup on kill --------------------------------
+  let cleaningUp = false;
+
+  const signalHandler = async (signal: NodeJS.Signals) => {
+    if (cleaningUp) {
+      // Second signal while cleanup is running → force exit
+      console.log(chalk.red("\nForce exiting.\n"));
+      process.exit(1);
+    }
+    cleaningUp = true;
+    await cleanupActiveSession();
+    process.exit(signal === "SIGINT" ? 130 : 143);
+  };
+
+  process.on("SIGINT", signalHandler);
+  process.on("SIGTERM", signalHandler);
+
+  const removeSignalHandlers = () => {
+    process.removeListener("SIGINT", signalHandler);
+    process.removeListener("SIGTERM", signalHandler);
+  };
+  // -------------------------------------------------------------------------
 
   console.log(
     chalk.bold("\n🗄️  supabase-worktree") +
       chalk.dim(" — manage parallel Supabase instances\n")
   );
 
-  while (true) {
-    let choice: MenuChoice;
+  try {
+    while (true) {
+      let choice: MenuChoice;
 
-    try {
-      choice = await select<MenuChoice>({
-        message: "What would you like to do?",
-        choices: INTERACTIVE_CHOICES.map((c) => ({
-          value: c.value,
-          name: c.name,
-        })),
-      });
-    } catch (error) {
-      if (isPromptExit(error)) {
+      try {
+        choice = await select<MenuChoice>({
+          message: "What would you like to do?",
+          choices: INTERACTIVE_CHOICES.map((c) => ({
+            value: c.value,
+            name: c.name,
+          })),
+        });
+      } catch (error) {
+        if (isPromptExit(error)) {
+          // Ctrl+C / Ctrl+D at the menu prompt
+          await cleanupActiveSession();
+          console.log(chalk.dim("\nGoodbye!\n"));
+          return;
+        }
+        throw error;
+      }
+
+      if (choice === "quit") {
+        await cleanupActiveSession();
         console.log(chalk.dim("\nGoodbye!\n"));
         return;
       }
-      throw error;
-    }
 
-    if (choice === "quit") {
-      console.log(chalk.dim("\nGoodbye!\n"));
-      return;
-    }
+      const fn = COMMANDS[choice];
+      if (!fn) continue;
 
-    const fn = COMMANDS[choice];
-    if (!fn) continue;
+      const ctx = buildContext(opts);
+      try {
+        const ok = await runCommand(fn, ctx);
 
-    const ctx = buildContext(opts);
-    try {
-      await runCommand(fn, ctx);
-    } catch (error) {
-      // Prompt exit during a command (e.g. user hit Ctrl+C during a confirm)
-      if (isPromptExit(error)) {
-        console.log(chalk.dim("\n  Command cancelled.\n"));
-        // Return to the menu instead of exiting
-        continue;
+        // Track session lifecycle so we can clean up on exit
+        if (ok && choice === "start") {
+          activeSessionRoot = ctx.projectRoot;
+        } else if (ok && (choice === "stop" || choice === "nuke")) {
+          activeSessionRoot = null;
+        }
+      } catch (error) {
+        // Prompt exit during a command (e.g. user hit Ctrl+C during a confirm)
+        if (isPromptExit(error)) {
+          console.log(chalk.dim("\n  Command cancelled.\n"));
+          // Return to the menu instead of exiting
+          continue;
+        }
+        throw error;
       }
-      throw error;
     }
+  } finally {
+    removeSignalHandlers();
   }
 }
 

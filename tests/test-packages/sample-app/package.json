@@ -1,0 +1,11 @@
+{
+  "name": "sample-app",
+  "version": "1.0.0",
+  "private": true,
+  "supabase-worktree": {
+    "envFiles": [".env", ".env.local"],
+    "configTemplate": "supabase/config.toml.template",
+    "defaultPortBase": 54321,
+    "portBlockSize": 100
+  }
+}

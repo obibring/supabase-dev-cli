@@ -18,17 +18,30 @@ When using `git worktree` for parallel development, each worktree shares the sam
 ### From GitHub (recommended for now)
 
 ```bash
+# npm
 npm install -D obibring/supabase-dev-cli
+
+# pnpm
+pnpm add -D https://github.com/obibring/supabase-dev-cli
+
+# yarn
+yarn add -D obibring/supabase-dev-cli
+
+# bun
+bun add -D github:obibring/supabase-dev-cli
 ```
 
 Or pin to a specific commit/tag:
 
 ```bash
-# Specific commit
+# npm / yarn
 npm install -D obibring/supabase-dev-cli#COMMIT_SHA
 
-# Specific tag
-npm install -D obibring/supabase-dev-cli#v1.0.0
+# pnpm
+pnpm add -D https://github.com/obibring/supabase-dev-cli#COMMIT_SHA
+
+# bun
+bun add -D github:obibring/supabase-dev-cli#COMMIT_SHA
 ```
 
 ### From npm

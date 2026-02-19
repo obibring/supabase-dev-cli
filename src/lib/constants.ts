@@ -1,4 +1,3 @@
-export const DEFAULT_PORT_BASE = 54321;
 export const DEFAULT_PORT_BLOCK_SIZE = 100;
 
 export const REPLACEABLE_HOSTS = [

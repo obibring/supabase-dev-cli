@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractPorts, allocatePortBase, buildPortMap, validatePortRange } from "../../src/lib/ports.js";
+import { extractPorts, getPortBase, allocatePortBase, buildPortMap, validatePortRange } from "../../src/lib/ports.js";
 import { SAMPLE_CONFIG_TOML } from "../helpers.js";
 
 // ---------------------------------------------------------------------------
@@ -95,6 +95,35 @@ port = 5000
 });
 
 // ---------------------------------------------------------------------------
+// getPortBase
+// ---------------------------------------------------------------------------
+describe("getPortBase", () => {
+  it("returns the minimum port value from extracted ports", () => {
+    const ports = extractPorts(SAMPLE_CONFIG_TOML);
+    expect(getPortBase(ports)).toBe(54321);
+  });
+
+  it("works with a custom template using different ports", () => {
+    const toml = `
+[api]
+port = 30000
+
+[db]
+port = 30001
+
+[studio]
+port = 30002
+`;
+    const ports = extractPorts(toml);
+    expect(getPortBase(ports)).toBe(30000);
+  });
+
+  it("throws when given an empty port list", () => {
+    expect(() => getPortBase([])).toThrow(/empty port list/);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // allocatePortBase
 // ---------------------------------------------------------------------------
 describe("allocatePortBase", () => {
@@ -141,8 +170,9 @@ describe("allocatePortBase", () => {
     );
   });
 
-  it("uses default values when not specified", () => {
-    expect(allocatePortBase([])).toBe(54321);
+  it("works with any starting port base", () => {
+    expect(allocatePortBase([], 30000, 100)).toBe(30000);
+    expect(allocatePortBase([30000], 30000, 100)).toBe(30100);
   });
 });
 

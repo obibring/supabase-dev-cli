@@ -23,6 +23,5 @@ export interface WorktreeEntry {
 export interface ProjectConfig {
   envFiles: string[];
   configTemplate: string;
-  defaultPortBase: number;
   portBlockSize: number;
 }

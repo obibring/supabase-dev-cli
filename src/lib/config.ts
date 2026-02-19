@@ -2,7 +2,6 @@ import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
-  DEFAULT_PORT_BASE,
   DEFAULT_PORT_BLOCK_SIZE,
   DEFAULT_ENV_PATTERNS,
   DEFAULT_CONFIG_TEMPLATE,
@@ -51,7 +50,6 @@ export async function loadConfig(projectRoot: string): Promise<ProjectConfig | n
   return {
     envFiles: config.envFiles ?? DEFAULT_ENV_PATTERNS,
     configTemplate: config.configTemplate ?? DEFAULT_CONFIG_TEMPLATE,
-    defaultPortBase: config.defaultPortBase ?? DEFAULT_PORT_BASE,
     portBlockSize: config.portBlockSize ?? DEFAULT_PORT_BLOCK_SIZE,
   };
 }

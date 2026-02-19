@@ -20,7 +20,6 @@ describe("loadConfig", () => {
         "supabase-worktree": {
           envFiles: [".env"],
           configTemplate: "supabase/config.toml.template",
-          defaultPortBase: 54321,
           portBlockSize: 100,
         },
       },
@@ -30,7 +29,6 @@ describe("loadConfig", () => {
     expect(config).not.toBeNull();
     expect(config!.envFiles).toEqual([".env"]);
     expect(config!.configTemplate).toBe("supabase/config.toml.template");
-    expect(config!.defaultPortBase).toBe(54321);
     expect(config!.portBlockSize).toBe(100);
   });
 
@@ -51,7 +49,7 @@ describe("loadConfig", () => {
       packageJsonExtra: {
         "supabase-worktree": {
           envFiles: [".env"],
-          // configTemplate, defaultPortBase, portBlockSize are missing
+          // configTemplate, portBlockSize are missing
         },
       },
     });
@@ -60,7 +58,6 @@ describe("loadConfig", () => {
     expect(config).not.toBeNull();
     expect(config!.envFiles).toEqual([".env"]);
     expect(config!.configTemplate).toBe("supabase/config.toml.template");
-    expect(config!.defaultPortBase).toBe(54321);
     expect(config!.portBlockSize).toBe(100);
   });
 
@@ -70,7 +67,6 @@ describe("loadConfig", () => {
         "supabase-worktree": {
           envFiles: ["custom/.env"],
           configTemplate: "custom/template.toml",
-          defaultPortBase: 10000,
           portBlockSize: 50,
         },
       },
@@ -79,8 +75,25 @@ describe("loadConfig", () => {
     const config = await loadConfig(projectDir);
     expect(config!.envFiles).toEqual(["custom/.env"]);
     expect(config!.configTemplate).toBe("custom/template.toml");
-    expect(config!.defaultPortBase).toBe(10000);
     expect(config!.portBlockSize).toBe(50);
+  });
+
+  it("ignores defaultPortBase if present in legacy config", async () => {
+    projectDir = createTestProject({
+      packageJsonExtra: {
+        "supabase-worktree": {
+          envFiles: [".env"],
+          configTemplate: "supabase/config.toml.template",
+          defaultPortBase: 10000,
+          portBlockSize: 100,
+        },
+      },
+    });
+
+    const config = await loadConfig(projectDir);
+    expect(config).not.toBeNull();
+    // defaultPortBase should not be on the returned config
+    expect((config as any).defaultPortBase).toBeUndefined();
   });
 });
 

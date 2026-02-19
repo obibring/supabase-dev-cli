@@ -47,8 +47,8 @@ describe("initCommand", () => {
     const pkg = JSON.parse(readFileSync(join(projectDir, "package.json"), "utf-8"));
     expect(pkg["supabase-worktree"]).toBeDefined();
     expect(pkg["supabase-worktree"].configTemplate).toBe("supabase/config.toml.template");
-    expect(pkg["supabase-worktree"].defaultPortBase).toBe(54321);
     expect(pkg["supabase-worktree"].portBlockSize).toBe(100);
+    expect(pkg["supabase-worktree"].defaultPortBase).toBeUndefined();
   });
 
   it("discovers existing .env files and includes them in config", async () => {

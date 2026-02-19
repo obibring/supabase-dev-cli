@@ -5,7 +5,6 @@ import chalk from "chalk";
 import {
   DEFAULT_ENV_PATTERNS,
   DEFAULT_CONFIG_TEMPLATE,
-  DEFAULT_PORT_BASE,
   DEFAULT_PORT_BLOCK_SIZE,
 } from "../lib/constants.js";
 import { CommandError } from "../lib/errors.js";
@@ -67,7 +66,6 @@ function formatExampleConfig(): string {
     "supabase-worktree": {
       envFiles: [".env", ".env.local", "apps/web/.env.local"],
       configTemplate: DEFAULT_CONFIG_TEMPLATE,
-      defaultPortBase: DEFAULT_PORT_BASE,
       portBlockSize: DEFAULT_PORT_BLOCK_SIZE,
     },
   };
@@ -104,15 +102,6 @@ function printFieldReference(): void {
   console.log(
     chalk.dim("                      Default: ") +
       chalk.white(`"${DEFAULT_CONFIG_TEMPLATE}"`)
-  );
-  console.log();
-  console.log(
-    chalk.cyan("    defaultPortBase") +
-      chalk.dim("   Base port for the first instance.")
-  );
-  console.log(
-    chalk.dim("                      Default: ") +
-      chalk.white(String(DEFAULT_PORT_BASE))
   );
   console.log();
   console.log(

@@ -36,7 +36,6 @@ describe("configCommand", () => {
         "supabase-worktree": {
           envFiles: [".env"],
           configTemplate: "supabase/config.toml.template",
-          defaultPortBase: 54321,
           portBlockSize: 100,
         },
       },
@@ -47,7 +46,6 @@ describe("configCommand", () => {
 
     expect(consoleCap.output).toContain("Found config in package.json");
     expect(consoleCap.output).toContain(".env");
-    expect(consoleCap.output).toContain("54321");
   });
 
   it("shows field reference", async () => {
@@ -64,8 +62,8 @@ describe("configCommand", () => {
 
     expect(consoleCap.output).toContain("envFiles");
     expect(consoleCap.output).toContain("configTemplate");
-    expect(consoleCap.output).toContain("defaultPortBase");
     expect(consoleCap.output).toContain("portBlockSize");
+    expect(consoleCap.output).not.toContain("defaultPortBase");
   });
 
   it("throws when no package.json exists", async () => {

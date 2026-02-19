@@ -10,7 +10,7 @@ import {
   getAllocatedProjectIds,
   registerWorktree,
 } from "../lib/registry.js";
-import { extractPorts, allocatePortBase, buildPortMap } from "../lib/ports.js";
+import { extractPorts, getPortBase, allocatePortBase, buildPortMap } from "../lib/ports.js";
 import {
   generateConfig,
   deriveProjectId,
@@ -102,10 +102,11 @@ export async function startCommand(ctx: CommandContext): Promise<void> {
   }
 
   // 5. Allocate a port range
+  const templatePortBase = getPortBase(extractedPorts);
   const allocatedBases = await getAllocatedPortBases();
   const newBase = allocatePortBase(
     allocatedBases,
-    config.defaultPortBase,
+    templatePortBase,
     config.portBlockSize
   );
   const portMap = buildPortMap(extractedPorts, newBase);
@@ -197,7 +198,7 @@ export async function startCommand(ctx: CommandContext): Promise<void> {
       console.log(chalk.dim(output));
     }
     console.log(chalk.bold.green("\n✅ Supabase is running!\n"));
-    console.log(`  API URL:    ${chalk.cyan(`http://localhost:${portMap[String(config.defaultPortBase)] ?? newBase}`)}`);
+    console.log(`  API URL:    ${chalk.cyan(`http://localhost:${newBase}`)}`);
     console.log(`  Studio URL: ${chalk.cyan(`http://localhost:${newBase + 2}`)}`);
     console.log(`  DB port:    ${chalk.cyan(String(newBase + 1))}`);
     console.log();

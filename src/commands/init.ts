@@ -7,7 +7,6 @@ import { glob } from "glob";
 import {
   DEFAULT_ENV_PATTERNS,
   DEFAULT_CONFIG_TEMPLATE,
-  DEFAULT_PORT_BASE,
   DEFAULT_PORT_BLOCK_SIZE,
 } from "../lib/constants.js";
 import { CommandError } from "../lib/errors.js";
@@ -94,7 +93,6 @@ export async function initCommand(ctx: CommandContext): Promise<void> {
   pkg["supabase-worktree"] = {
     envFiles: uniqueEnvFiles.length > 0 ? uniqueEnvFiles : DEFAULT_ENV_PATTERNS,
     configTemplate: DEFAULT_CONFIG_TEMPLATE,
-    defaultPortBase: DEFAULT_PORT_BASE,
     portBlockSize: DEFAULT_PORT_BLOCK_SIZE,
   };
 

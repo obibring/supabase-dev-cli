@@ -67,7 +67,6 @@ describe("stopCommand", () => {
         "supabase-worktree": {
           envFiles: [".env", ".env.local"],
           configTemplate: "supabase/config.toml.template",
-          defaultPortBase: 54321,
           portBlockSize: 100,
         },
       },
@@ -113,7 +112,6 @@ describe("stopCommand", () => {
         "supabase-worktree": {
           envFiles: [".env", ".env.local"],
           configTemplate: "supabase/config.toml.template",
-          defaultPortBase: 54321,
           portBlockSize: 100,
         },
       },
@@ -143,7 +141,6 @@ describe("stopCommand", () => {
         "supabase-worktree": {
           envFiles: [],
           configTemplate: "supabase/config.toml.template",
-          defaultPortBase: 54321,
           portBlockSize: 100,
         },
       },
@@ -184,7 +181,6 @@ describe("stopCommand", () => {
         "supabase-worktree": {
           envFiles: [],
           configTemplate: "supabase/config.toml.template",
-          defaultPortBase: 54321,
           portBlockSize: 100,
         },
       },

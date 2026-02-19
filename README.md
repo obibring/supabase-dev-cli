@@ -15,6 +15,24 @@ When using `git worktree` for parallel development, each worktree shares the sam
 
 ## Installation
 
+### From GitHub (recommended for now)
+
+```bash
+npm install -D obibring/supabase-dev-cli
+```
+
+Or pin to a specific commit/tag:
+
+```bash
+# Specific commit
+npm install -D obibring/supabase-dev-cli#COMMIT_SHA
+
+# Specific tag
+npm install -D obibring/supabase-dev-cli#v1.0.0
+```
+
+### From npm
+
 ```bash
 npm install -D supabase-worktree
 ```
@@ -72,14 +90,13 @@ Configuration lives in your `package.json` under the `"supabase-worktree"` key. 
     // Path to the config.toml template
     "configTemplate": "supabase/config.toml.template",
 
-    // Base port for the default instance (default: 54321)
-    "defaultPortBase": 54321,
-
     // Ports allocated per worktree (default: 100)
     "portBlockSize": 100
   }
 }
 ```
+
+The base port is automatically detected from your `config.toml.template` (the minimum port value found in the file).
 
 ### Default .env File Discovery
 

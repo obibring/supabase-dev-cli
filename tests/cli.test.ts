@@ -98,7 +98,7 @@ describe("CLI binary (e2e)", () => {
 
       expect(stdout).toContain("Found config in package.json");
       expect(stdout).toContain(".env");
-      expect(stdout).toContain("54321");
+      expect(stdout).toContain("portBlockSize");
     });
 
     it("shows missing config message for unconfigured package", () => {

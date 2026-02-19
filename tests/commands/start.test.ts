@@ -68,7 +68,6 @@ describe("startCommand", () => {
         "supabase-worktree": {
           envFiles: [".env", ".env.local"],
           configTemplate: "supabase/config.toml.template",
-          defaultPortBase: 54321,
           portBlockSize: 100,
         },
       },
@@ -95,7 +94,6 @@ describe("startCommand", () => {
         "supabase-worktree": {
           envFiles: [".env", ".env.local"],
           configTemplate: "supabase/config.toml.template",
-          defaultPortBase: 54321,
           portBlockSize: 100,
         },
       },
@@ -133,7 +131,6 @@ describe("startCommand", () => {
         "supabase-worktree": {
           envFiles: [".env", ".env.local"],
           configTemplate: "supabase/config.toml.template",
-          defaultPortBase: 54321,
           portBlockSize: 100,
         },
       },
@@ -162,7 +159,6 @@ describe("startCommand", () => {
         "supabase-worktree": {
           envFiles: [],
           configTemplate: "supabase/config.toml.template",
-          defaultPortBase: 54321,
           portBlockSize: 100,
         },
       },
@@ -178,7 +174,6 @@ describe("startCommand", () => {
         "supabase-worktree": {
           envFiles: [],
           configTemplate: "supabase/config.toml.template",
-          defaultPortBase: 54321,
           portBlockSize: 100,
         },
       },
@@ -211,7 +206,6 @@ describe("startCommand", () => {
         "supabase-worktree": {
           envFiles: [],
           configTemplate: "supabase/config.toml.template",
-          defaultPortBase: 54321,
           portBlockSize: 100,
         },
       },
@@ -229,7 +223,6 @@ describe("startCommand", () => {
         "supabase-worktree": {
           envFiles: [],
           configTemplate: "supabase/config.toml.template",
-          defaultPortBase: 54321,
           portBlockSize: 100,
         },
       },
@@ -255,7 +248,6 @@ describe("startCommand", () => {
         "supabase-worktree": {
           envFiles: [],
           configTemplate: "supabase/config.toml.template",
-          defaultPortBase: 54321,
           portBlockSize: 100,
         },
       },
@@ -292,7 +284,6 @@ describe("startCommand", () => {
         "supabase-worktree": {
           envFiles: [],
           configTemplate: "supabase/config.toml.template",
-          defaultPortBase: 54321,
           portBlockSize: 100,
         },
       },
@@ -314,7 +305,6 @@ describe("startCommand", () => {
         "supabase-worktree": {
           envFiles: [],
           configTemplate: "supabase/config.toml.template",
-          defaultPortBase: 54321,
           portBlockSize: 100,
         },
       },
@@ -329,7 +319,6 @@ describe("startCommand", () => {
         "supabase-worktree": {
           envFiles: [],
           configTemplate: "supabase/config.toml.template",
-          defaultPortBase: 54321,
           portBlockSize: 100,
         },
       },
@@ -342,5 +331,41 @@ describe("startCommand", () => {
     expect(ids).toContain("sbwt-test-branch-2");
 
     cleanupDir(projectDir2);
+  });
+
+  it("derives port base from template ports, not from config", async () => {
+    // Use a custom template with non-default ports (base = 30000)
+    const customToml = `[api]
+port = 30000
+
+[db]
+port = 30001
+
+[studio]
+port = 30002
+
+project_id = "my-project"
+`;
+
+    projectDir = createTestProject({
+      withConfig: true,
+      withTemplate: true,
+      configToml: customToml,
+      packageJsonExtra: {
+        "supabase-worktree": {
+          envFiles: [],
+          configTemplate: "supabase/config.toml.template",
+          portBlockSize: 100,
+        },
+      },
+    });
+    const ctx = buildTestContext(projectDir);
+
+    await startCommand(ctx);
+
+    const entries = await getAllEntries();
+    expect(entries.length).toBe(1);
+    // Port base should be 30000 (from the template), not 54321
+    expect(entries[0].portBase).toBe(30000);
   });
 });

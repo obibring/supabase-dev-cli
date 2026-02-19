@@ -1,4 +1,4 @@
-import { DEFAULT_PORT_BASE, DEFAULT_PORT_BLOCK_SIZE } from "./constants.js";
+import { DEFAULT_PORT_BLOCK_SIZE } from "./constants.js";
 import type { ExtractedPort } from "./types.js";
 
 /**
@@ -47,17 +47,27 @@ export function extractPorts(tomlContent: string): ExtractedPort[] {
 }
 
 /**
+ * Get the base port (minimum port value) from extracted ports.
+ */
+export function getPortBase(extractedPorts: ExtractedPort[]): number {
+  if (extractedPorts.length === 0) {
+    throw new Error("Cannot determine port base from empty port list");
+  }
+  return Math.min(...extractedPorts.map((p) => p.value));
+}
+
+/**
  * Allocate a new port base that doesn't collide with any existing allocations.
  *
- * Strategy: start from defaultPortBase, increment by blockSize until we find
+ * Strategy: start from portBase, increment by blockSize until we find
  * a range that doesn't overlap with any allocated range.
  */
 export function allocatePortBase(
   allocatedBases: number[],
-  defaultPortBase: number = DEFAULT_PORT_BASE,
+  portBase: number,
   blockSize: number = DEFAULT_PORT_BLOCK_SIZE
 ): number {
-  let candidate = defaultPortBase;
+  let candidate = portBase;
   const maxPort = 65535 - blockSize;
 
   while (candidate <= maxPort) {
@@ -74,7 +84,7 @@ export function allocatePortBase(
   }
 
   throw new Error(
-    `Unable to allocate a port range. All ranges between ${defaultPortBase} and ${maxPort} are occupied.`
+    `Unable to allocate a port range. All ranges between ${portBase} and ${maxPort} are occupied.`
   );
 }
 

@@ -8,56 +8,211 @@ import { createTempDir, cleanupDir, SAMPLE_CONFIG_TOML } from "../helpers.js";
 // deriveProjectId
 // ---------------------------------------------------------------------------
 describe("deriveProjectId", () => {
-  it("creates a slug from repo name and branch", () => {
-    expect(deriveProjectId("my-app", "main")).toBe("my-app-main");
+  it("prefixes with sbwt-", () => {
+    expect(deriveProjectId({ branch: "main", worktreeName: null })).toBe("sbwt-main");
+  });
+
+  it("uses worktree name when provided", () => {
+    expect(
+      deriveProjectId({ branch: "feat/auth", worktreeName: "feature-auth" })
+    ).toBe("sbwt-feature-auth");
+  });
+
+  it("falls back to branch when no worktree", () => {
+    expect(
+      deriveProjectId({ branch: "main", worktreeName: null })
+    ).toBe("sbwt-main");
+  });
+
+  it("sanitizes branch slashes", () => {
+    expect(
+      deriveProjectId({ branch: "feature/login", worktreeName: null })
+    ).toBe("sbwt-feature-login");
   });
 
   it("normalizes to lowercase", () => {
-    expect(deriveProjectId("My-App", "Feature-Branch")).toBe("my-app-feature-branch");
+    expect(
+      deriveProjectId({ branch: "Feature-Branch", worktreeName: null })
+    ).toBe("sbwt-feature-branch");
   });
 
   it("replaces non-alphanumeric characters with hyphens", () => {
-    expect(deriveProjectId("my_app", "feature/login")).toBe("my-app-feature-login");
+    expect(
+      deriveProjectId({ branch: "feat_login", worktreeName: null })
+    ).toBe("sbwt-feat-login");
   });
 
   it("collapses consecutive hyphens", () => {
-    expect(deriveProjectId("my--app", "feat//branch")).toBe("my-app-feat-branch");
+    expect(
+      deriveProjectId({ branch: "feat//branch", worktreeName: null })
+    ).toBe("sbwt-feat-branch");
   });
 
-  it("trims leading and trailing hyphens", () => {
-    expect(deriveProjectId("-app-", "-branch-")).toBe("app-branch");
+  it("trims leading and trailing hyphens from the body", () => {
+    expect(
+      deriveProjectId({ branch: "-branch-", worktreeName: null })
+    ).toBe("sbwt-branch");
   });
 
-  it("truncates slugs longer than 40 characters with a hash suffix", () => {
-    const long = "a-very-long-repository-name-that-goes-on";
-    const branch = "and-a-very-long-branch-name";
-    const id = deriveProjectId(long, branch);
+  it("truncates long names to 40 chars with a hash suffix", () => {
+    const id = deriveProjectId({
+      branch: "a-very-long-branch-name-that-will-definitely-exceed-the-limit",
+      worktreeName: null,
+    });
 
     expect(id.length).toBeLessThanOrEqual(40);
-    // Should end with an 8-char hash
+    expect(id).toMatch(/^sbwt-/);
     expect(id).toMatch(/-[a-f0-9]{8}$/);
   });
 
-  it("returns the full slug when exactly 40 characters", () => {
-    // Exactly 40 chars
-    const repo = "abcdefghijklmnopqr";
-    const branch = "stuvwxyz01234567890ab";
-    const slug = `${repo}-${branch}`;
-    expect(slug.length).toBe(40);
-    expect(deriveProjectId(repo, branch)).toBe(slug);
+  it("returns the full ID when exactly at 40 characters", () => {
+    // "sbwt-" is 5 chars, so we need a 35-char body
+    const body = "a".repeat(35);
+    const id = deriveProjectId({ branch: body, worktreeName: null });
+    expect(id).toBe(`sbwt-${body}`);
+    expect(id.length).toBe(40);
   });
 
   it("produces deterministic output for the same inputs", () => {
-    const a = deriveProjectId("repo", "branch");
-    const b = deriveProjectId("repo", "branch");
-    expect(a).toBe(b);
+    const opts = { branch: "main", worktreeName: null };
+    expect(deriveProjectId(opts)).toBe(deriveProjectId(opts));
   });
 
-  it("produces different hashes for different inputs", () => {
-    const long = "a-really-long-repository-name-that-is-over-forty-chars";
-    const a = deriveProjectId(long, "branch-a");
-    const b = deriveProjectId(long, "branch-b");
+  it("produces different hashes for different long inputs", () => {
+    const a = deriveProjectId({
+      branch: "a-really-long-branch-name-that-is-way-over-forty-chars",
+      worktreeName: null,
+    });
+    const b = deriveProjectId({
+      branch: "a-really-long-branch-name-that-is-way-over-forty-diff",
+      worktreeName: null,
+    });
     expect(a).not.toBe(b);
+  });
+
+  // --- Uniqueness tests ---
+  it("appends -2 when colliding with existing IDs", () => {
+    expect(
+      deriveProjectId({
+        branch: "main",
+        worktreeName: null,
+        existingIds: ["sbwt-main"],
+      })
+    ).toBe("sbwt-main-2");
+  });
+
+  it("appends -3 when -2 is also taken", () => {
+    expect(
+      deriveProjectId({
+        branch: "main",
+        worktreeName: null,
+        existingIds: ["sbwt-main", "sbwt-main-2"],
+      })
+    ).toBe("sbwt-main-3");
+  });
+
+  it("returns base candidate when no collision", () => {
+    expect(
+      deriveProjectId({
+        branch: "dev",
+        worktreeName: null,
+        existingIds: ["sbwt-main"],
+      })
+    ).toBe("sbwt-dev");
+  });
+
+  it("uniqueness suffix respects 40-char limit", () => {
+    const body = "a".repeat(35); // sbwt- + 35 = 40 exactly
+    const id = deriveProjectId({
+      branch: body,
+      worktreeName: null,
+      existingIds: [`sbwt-${body}`],
+    });
+    expect(id.length).toBeLessThanOrEqual(40);
+    expect(id).toMatch(/-2$/);
+  });
+
+  // --- Edge cases ---
+  it("handles empty branch string gracefully", () => {
+    const id = deriveProjectId({ branch: "", worktreeName: null });
+    expect(id).toMatch(/^sbwt-/);
+    // Empty body after sanitization → prefix only (or hash fallback)
+    expect(id.length).toBeGreaterThan(0);
+  });
+
+  it("sanitizes worktree names with special characters", () => {
+    const id = deriveProjectId({
+      branch: "main",
+      worktreeName: "feature@special#name!",
+    });
+    expect(id).toBe("sbwt-feature-special-name");
+  });
+
+  it("sanitizes worktree names with underscores and dots", () => {
+    const id = deriveProjectId({
+      branch: "main",
+      worktreeName: "my_feature.v2",
+    });
+    expect(id).toBe("sbwt-my-feature-v2");
+  });
+
+  it("truncates long worktree names with a hash suffix", () => {
+    const longName = "a-very-long-worktree-directory-name-that-exceeds-the-max";
+    const id = deriveProjectId({
+      branch: "main",
+      worktreeName: longName,
+    });
+    expect(id.length).toBeLessThanOrEqual(40);
+    expect(id).toMatch(/^sbwt-/);
+    expect(id).toMatch(/-[a-f0-9]{8}$/);
+  });
+
+  it("appends uniqueness suffix when worktree name collides", () => {
+    const id = deriveProjectId({
+      branch: "main",
+      worktreeName: "feature-auth",
+      existingIds: ["sbwt-feature-auth"],
+    });
+    expect(id).toBe("sbwt-feature-auth-2");
+  });
+
+  it("defaults existingIds to empty array when omitted", () => {
+    const id = deriveProjectId({ branch: "main", worktreeName: null });
+    // Should not throw and should return base candidate
+    expect(id).toBe("sbwt-main");
+  });
+
+  it("handles branch names that are all special characters", () => {
+    const id = deriveProjectId({ branch: "///", worktreeName: null });
+    expect(id).toMatch(/^sbwt-/);
+  });
+
+  it("handles high uniqueness suffix numbers", () => {
+    const existingIds = ["sbwt-dev"];
+    for (let i = 2; i <= 10; i++) {
+      existingIds.push(`sbwt-dev-${i}`);
+    }
+    const id = deriveProjectId({
+      branch: "dev",
+      worktreeName: null,
+      existingIds,
+    });
+    expect(id).toBe("sbwt-dev-11");
+  });
+
+  it("produces different IDs for different worktree names on same branch", () => {
+    const a = deriveProjectId({ branch: "main", worktreeName: "feature-a" });
+    const b = deriveProjectId({ branch: "main", worktreeName: "feature-b" });
+    expect(a).not.toBe(b);
+  });
+
+  it("worktree name takes priority even when branch is different", () => {
+    const id = deriveProjectId({
+      branch: "feat/some-branch",
+      worktreeName: "my-worktree",
+    });
+    expect(id).toBe("sbwt-my-worktree");
+    expect(id).not.toContain("feat");
   });
 });
 

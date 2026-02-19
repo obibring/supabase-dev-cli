@@ -1,7 +1,29 @@
 import { execSync, exec } from "node:child_process";
 import { promisify } from "node:util";
+import { basename } from "node:path";
 
 const execAsync = promisify(exec);
+
+/**
+ * Detect whether the given directory is inside a linked git worktree.
+ * Returns `linked: true` with the worktree directory name when it is.
+ */
+export async function isGitWorktree(cwd: string): Promise<{ linked: boolean; name: string | null }> {
+  try {
+    const [{ stdout: gitDir }, { stdout: commonDir }] = await Promise.all([
+      execAsync("git rev-parse --git-dir", { cwd }),
+      execAsync("git rev-parse --git-common-dir", { cwd }),
+    ]);
+
+    if (gitDir.trim() !== commonDir.trim()) {
+      return { linked: true, name: basename(cwd) };
+    }
+  } catch {
+    // Not a git repo or git not available
+  }
+
+  return { linked: false, name: null };
+}
 
 /**
  * Get the current git branch name.

@@ -7,6 +7,7 @@ import { loadConfig } from "../lib/config.js";
 import {
   getWorktreeEntry,
   getAllocatedPortBases,
+  getAllocatedProjectIds,
   registerWorktree,
 } from "../lib/registry.js";
 import { extractPorts, allocatePortBase, buildPortMap } from "../lib/ports.js";
@@ -15,7 +16,7 @@ import {
   deriveProjectId,
 } from "../lib/template.js";
 import { updateEnvFiles } from "../lib/env.js";
-import { getGitBranch, getGitRepoName, supabaseStart } from "../lib/exec.js";
+import { getGitBranch, getGitRepoName, isGitWorktree, supabaseStart } from "../lib/exec.js";
 import { formatPortTable } from "../lib/utils.js";
 import { CommandError } from "../lib/errors.js";
 import type { CommandContext } from "../lib/types.js";
@@ -131,7 +132,16 @@ export async function startCommand(ctx: CommandContext): Promise<void> {
       `Make sure you're inside a git repository.\n  Run ${chalk.cyan("git init")} if this is a new project.`
     );
   }
-  const projectId = deriveProjectId(repoName, branch);
+
+  // Detect worktree and gather existing IDs for uniqueness
+  const worktreeInfo = await isGitWorktree(projectRoot);
+  const existingIds = await getAllocatedProjectIds();
+
+  const projectId = deriveProjectId({
+    branch,
+    worktreeName: worktreeInfo.linked ? worktreeInfo.name : null,
+    existingIds,
+  });
 
   console.log(chalk.dim(`  Project ID: ${projectId}`));
   console.log(chalk.dim(`  Branch: ${branch}`));

@@ -42,6 +42,14 @@ export async function getAllocatedPortBases(): Promise<number[]> {
 }
 
 /**
+ * Get all currently allocated project IDs.
+ */
+export async function getAllocatedProjectIds(): Promise<string[]> {
+  const entries = await readRegistry();
+  return entries.map((e) => e.projectId);
+}
+
+/**
  * Register a new worktree entry, replacing any existing entry for the same path.
  */
 export async function registerWorktree(entry: WorktreeEntry): Promise<void> {

@@ -16,6 +16,7 @@ vi.mock("node:os", async (importOriginal) => {
 vi.mock("../../src/lib/exec.js", () => ({
   getGitBranch: vi.fn(async () => "test-branch"),
   getGitRepoName: vi.fn(async () => "test-repo"),
+  isGitWorktree: vi.fn(async () => ({ linked: false, name: null })),
   supabaseStart: vi.fn(async () => "Started"),
   supabaseStop: vi.fn(async () => "Stopped"),
 }));

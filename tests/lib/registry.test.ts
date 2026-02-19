@@ -21,6 +21,7 @@ vi.mock("node:os", async (importOriginal) => {
 import {
   getWorktreeEntry,
   getAllocatedPortBases,
+  getAllocatedProjectIds,
   registerWorktree,
   unregisterWorktree,
   getAllEntries,
@@ -127,6 +128,35 @@ describe("getAllocatedPortBases", () => {
   it("returns empty array when registry is empty", async () => {
     const bases = await getAllocatedPortBases();
     expect(bases).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getAllocatedProjectIds
+// ---------------------------------------------------------------------------
+describe("getAllocatedProjectIds", () => {
+  it("returns all project IDs", async () => {
+    await registerWorktree(makeEntry({ worktreePath: "/a", projectId: "sbwt-main" }));
+    await registerWorktree(makeEntry({ worktreePath: "/b", projectId: "sbwt-feature" }));
+
+    const ids = await getAllocatedProjectIds();
+    expect(ids).toEqual(expect.arrayContaining(["sbwt-main", "sbwt-feature"]));
+    expect(ids.length).toBe(2);
+  });
+
+  it("returns empty array when registry is empty", async () => {
+    const ids = await getAllocatedProjectIds();
+    expect(ids).toEqual([]);
+  });
+
+  it("reflects the latest state after registration and removal", async () => {
+    await registerWorktree(makeEntry({ worktreePath: "/a", projectId: "sbwt-one" }));
+    await registerWorktree(makeEntry({ worktreePath: "/b", projectId: "sbwt-two" }));
+
+    await unregisterWorktree("/a");
+
+    const ids = await getAllocatedProjectIds();
+    expect(ids).toEqual(["sbwt-two"]);
   });
 });
 

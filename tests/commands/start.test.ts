@@ -18,6 +18,7 @@ vi.mock("node:os", async (importOriginal) => {
 vi.mock("../../src/lib/exec.js", () => ({
   getGitBranch: vi.fn(async () => "test-branch"),
   getGitRepoName: vi.fn(async () => "test-repo"),
+  isGitWorktree: vi.fn(async () => ({ linked: false, name: null })),
   supabaseStart: vi.fn(async () => "Started supabase"),
   supabaseStop: vi.fn(async () => "Stopped supabase"),
 }));
@@ -25,6 +26,7 @@ vi.mock("../../src/lib/exec.js", () => ({
 // ── Imports (after mocks) ───────────────────────────────────────────────────
 import { startCommand } from "../../src/commands/start.js";
 import { getAllEntries, clearRegistry } from "../../src/lib/registry.js";
+import { isGitWorktree } from "../../src/lib/exec.js";
 import {
   createTestProject,
   cleanupDir,
@@ -81,7 +83,7 @@ describe("startCommand", () => {
 
     const config = readFileSync(configPath, "utf-8");
     // Should have a derived project_id
-    expect(config).toContain("test-repo-test-branch");
+    expect(config).toContain("sbwt-test-branch");
   });
 
   it("registers the worktree in the global registry", async () => {
@@ -106,7 +108,7 @@ describe("startCommand", () => {
     expect(entries.length).toBe(1);
     expect(entries[0].worktreePath).toBe(projectDir);
     expect(entries[0].branch).toBe("test-branch");
-    expect(entries[0].projectId).toBe("test-repo-test-branch");
+    expect(entries[0].projectId).toBe("sbwt-test-branch");
     expect(entries[0].portBase).toBe(54321);
   });
 
@@ -237,5 +239,108 @@ describe("startCommand", () => {
     await startCommand(ctx);
 
     expect(consoleCap.output).toContain("Supabase is running");
+  });
+
+  it("uses worktree name in project ID when inside a linked worktree", async () => {
+    // Mock isGitWorktree to simulate being inside a linked worktree
+    vi.mocked(isGitWorktree).mockResolvedValueOnce({
+      linked: true,
+      name: "my-feature",
+    });
+
+    projectDir = createTestProject({
+      withConfig: true,
+      withTemplate: true,
+      packageJsonExtra: {
+        "supabase-worktree": {
+          envFiles: [],
+          configTemplate: "supabase/config.toml.template",
+          defaultPortBase: 54321,
+          portBlockSize: 100,
+        },
+      },
+    });
+    const ctx = buildTestContext(projectDir);
+
+    await startCommand(ctx);
+
+    const entries = await getAllEntries();
+    expect(entries.length).toBe(1);
+    // Should use worktree name, not branch
+    expect(entries[0].projectId).toBe("sbwt-my-feature");
+    expect(entries[0].projectId).not.toContain("test-branch");
+
+    // Config.toml should also reflect this
+    const config = readFileSync(
+      join(projectDir, "supabase", "config.toml"),
+      "utf-8"
+    );
+    expect(config).toContain('project_id = "sbwt-my-feature"');
+  });
+
+  it("uses branch name in project ID when not in a worktree", async () => {
+    // Ensure mock returns non-worktree (default, but be explicit)
+    vi.mocked(isGitWorktree).mockResolvedValueOnce({
+      linked: false,
+      name: null,
+    });
+
+    projectDir = createTestProject({
+      withConfig: true,
+      withTemplate: true,
+      packageJsonExtra: {
+        "supabase-worktree": {
+          envFiles: [],
+          configTemplate: "supabase/config.toml.template",
+          defaultPortBase: 54321,
+          portBlockSize: 100,
+        },
+      },
+    });
+    const ctx = buildTestContext(projectDir);
+
+    await startCommand(ctx);
+
+    const entries = await getAllEntries();
+    expect(entries[0].projectId).toBe("sbwt-test-branch");
+  });
+
+  it("generates unique project IDs when collisions exist in registry", async () => {
+    // Start a first project — takes sbwt-test-branch
+    projectDir = createTestProject({
+      withConfig: true,
+      withTemplate: true,
+      packageJsonExtra: {
+        "supabase-worktree": {
+          envFiles: [],
+          configTemplate: "supabase/config.toml.template",
+          defaultPortBase: 54321,
+          portBlockSize: 100,
+        },
+      },
+    });
+    await startCommand(buildTestContext(projectDir));
+
+    // Start a second project with same branch name — should get sbwt-test-branch-2
+    const projectDir2 = createTestProject({
+      withConfig: true,
+      withTemplate: true,
+      packageJsonExtra: {
+        "supabase-worktree": {
+          envFiles: [],
+          configTemplate: "supabase/config.toml.template",
+          defaultPortBase: 54321,
+          portBlockSize: 100,
+        },
+      },
+    });
+    await startCommand(buildTestContext(projectDir2));
+
+    const entries = await getAllEntries();
+    const ids = entries.map((e) => e.projectId).sort();
+    expect(ids).toContain("sbwt-test-branch");
+    expect(ids).toContain("sbwt-test-branch-2");
+
+    cleanupDir(projectDir2);
   });
 });
